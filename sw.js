@@ -1,6 +1,7 @@
-const CACHE_NAME = 'dompetku-ai-v1';
+// Naikkan angka versi ini SETIAP kali index.html/manifest diupdate,
+// supaya HP pengguna otomatis mengambil versi baru dan membuang cache lama.
+const CACHE_NAME = 'dompetku-ai-v2';
 const ASSETS = [
-  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -23,15 +24,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for CDN/API calls, cache-first for local shell
-  const url = new URL(event.request.url);
+  const req = event.request;
+  const url = new URL(req.url);
+
   if (url.origin === self.location.origin) {
+    // HTML/dokumen utama & file JS/JSON lokal: SELALU coba ambil versi terbaru dari internet dulu.
+    // Cache hanya dipakai sebagai cadangan kalau HP sedang offline.
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      fetch(req)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          return response;
+        })
+        .catch(() => caches.match(req))
     );
   } else {
+    // Resource dari CDN luar (Tailwind, Chart.js, dll): cache-first seperti biasa
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(req).catch(() => caches.match(req))
     );
   }
 });
